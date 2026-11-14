@@ -10,6 +10,7 @@ import asyncio
 import json
 import shutil
 import sys
+import time
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,13 +40,23 @@ def process_category(cat, args, store, stamp, engine, site: Path) -> dict:
     names = {g: [f"{cat}-{g}-{stamp}-{n:03d}.mp3" for n in range(len(texts))] for g in VOICES}
     durs = {}
     for g, voice in VOICES.items():                                    # 전부 합성 성공 후에만 업로드
-        print(f"  [tts] {g} {len(texts)}청크")
-        durs[g] = asyncio.run(synth_all(engine, texts, voice, [work / n for n in names[g]]))
+        for attempt in (1, 2):                                         # 전부 실패하면 한 번만 더 시도
+            print(f"  [tts] {g} {len(texts)}청크 (시도 {attempt}/2)")
+            durs[g] = asyncio.run(synth_all(engine, texts, voice, [work / n for n in names[g]]))
+            if any(d is not None for d in durs[g]):
+                break
+            time.sleep(10)
+        else:
+            raise RuntimeError(f"TTS 전부 실패({g}): 이 분야는 건너뜀")
+        if None in durs[g]:
+            print(f"  [tts] ⚠ {g}: {durs[g].count(None)}청크 실패 → 제외하고 진행")
 
     voices = {}
     for g in VOICES:
         chunks = []
         for m, name, d in zip(meta, names[g], durs[g]):
+            if d is None:                                              # 실패 청크 제외
+                continue
             if store:
                 url = store.upload(work / name, name)
             else:                                                      # 로컬: site/audio/ 로 복사
@@ -53,7 +64,7 @@ def process_category(cat, args, store, stamp, engine, site: Path) -> dict:
                 shutil.copy(work / name, site / "audio" / name)
                 url = f"audio/{name}"
             chunks.append({**m, "audio": url, "duration": d})
-        voices[g] = {"total_sec": round(sum(durs[g]), 1), "chunks": chunks}
+        voices[g] = {"total_sec": round(sum(d for d in durs[g] if d), 1), "chunks": chunks}
     return {"label": label, "updated_at": datetime.now(timezone.utc).isoformat(), "voices": voices}
 
 
@@ -71,8 +82,13 @@ def main():
     p.add_argument("--local", action="store_true", help="업로드 없이 build/site 에 결과 생성")
     p.add_argument("--site-dir", default="")
     p.add_argument("--check-feeds", action="store_true")
+    p.add_argument("--list-models", action="store_true", help="키별 사용 가능 모델 출력")
     p.add_argument("--cleanup", action="store_true")
     args = p.parse_args()
+
+    if args.list_models:
+        from .script_gen import list_models
+        return list_models()
 
     if args.check_feeds:
         for cat, c in CATEGORIES.items():
