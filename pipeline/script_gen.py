@@ -28,16 +28,29 @@ PROMPT = """너는 한국 뉴스 라디오의 앵커다. 아래 [기사 목록]�
 
 def _post(prompt: str) -> str:
     key = os.environ["GEMINI_API_KEY"]
+    # GEMINI_MODEL 은 쉼표로 여러 개 지정 가능: 재시도마다 번갈아 사용(과부하 대비)
+    models = [m.strip() for m in GEMINI_MODEL.split(",") if m.strip()]
     body = {"contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.4, "responseMimeType": "application/json"}}
     for attempt in range(GEMINI_MAX_RETRIES):
-        r = requests.post(API.format(m=GEMINI_MODEL), json=body, timeout=120,
-                          headers={"x-goog-api-key": key})
+        model = models[attempt % len(models)]
+        wait = min(10 * 2 ** attempt, 80)  # 지수 백오프: 10, 20, 40, 80초…
+        try:
+            r = requests.post(API.format(m=model), json=body, timeout=(10, 240),
+                              headers={"x-goog-api-key": key})
+        except requests.RequestException as ex:  # 타임아웃·연결 오류도 재시도
+            print(f"  [gemini] {model} 네트워크 오류({type(ex).__name__}), {wait}s 후 재시도 ({attempt + 1}/{GEMINI_MAX_RETRIES})")
+            time.sleep(wait)
+            continue
         if r.status_code == 200:
-            return r.json()["candidates"][0]["content"]["parts"][0]["text"]
-        if r.status_code in (429, 500, 503):  # 지수 백오프: 10, 20, 40, 80초…
-            wait = 10 * 2 ** attempt
-            print(f"  [gemini] {r.status_code}, {wait}s 후 재시도 ({attempt + 1}/{GEMINI_MAX_RETRIES})")
+            try:
+                return r.json()["candidates"][0]["content"]["parts"][0]["text"]
+            except (KeyError, IndexError):  # 안전 필터 등으로 빈 응답
+                print(f"  [gemini] {model} 빈 응답, 재시도")
+                time.sleep(wait)
+                continue
+        if r.status_code in (429, 500, 503, 504):
+            print(f"  [gemini] {model} {r.status_code}, {wait}s 후 재시도 ({attempt + 1}/{GEMINI_MAX_RETRIES})")
             time.sleep(wait)
             continue
         raise RuntimeError(f"Gemini {r.status_code}: {r.text[:200]}")
@@ -64,7 +77,7 @@ def build_script(label: str, articles: list[dict], target_chars: int) -> list[di
         except Exception as ex:
             print(f"  [gemini] 묶음 실패, 건너뜀: {ex}")
             fails += 1
-            if fails >= 2:
+            if fails >= 3:
                 break
             time.sleep(GEMINI_INTERVAL_SEC)
             continue
