@@ -53,7 +53,7 @@ def _post(prompt: str) -> str:
             print(f"  [gemini] {model} {r.status_code}, {wait}s 후 재시도 ({attempt + 1}/{GEMINI_MAX_RETRIES})")
             time.sleep(wait)
             continue
-        raise RuntimeError(f"Gemini {r.status_code}: {r.text[:200]}")
+        raise RuntimeError(f"Gemini {r.status_code} (model={model}): {r.text[:200]}")
     raise RuntimeError("Gemini 재시도 초과")
 
 
