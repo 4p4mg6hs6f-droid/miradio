@@ -16,14 +16,14 @@ class EdgeTTSEngine(TTSEngine):
 
     async def synthesize(self, text: str, voice: str, out: Path) -> None:
         import edge_tts
-        for attempt in range(4):
+        for attempt in range(2):  # 기사 1건당 최대 2회(한 번만 더 시도)
             try:
                 await edge_tts.Communicate(text, voice).save(str(out))
                 if out.exists() and out.stat().st_size > 1000:
                     return
             except Exception as ex:
                 print(f"  [tts] 재시도 {attempt + 1}: {ex}")
-            await asyncio.sleep(2 ** attempt)
+            await asyncio.sleep(2)
         raise RuntimeError(f"TTS 실패: {out.name}")
 
 
@@ -32,12 +32,17 @@ def duration_sec(path: Path) -> float:
 
 
 async def synth_all(engine: TTSEngine, texts: list[str], voice: str,
-                    paths: list[Path], concurrency: int = 3) -> list[float]:
+                    paths: list[Path], concurrency: int = 3) -> list[float | None]:
+    """청크별 길이(초) 반환. 끝까지 실패한 청크는 None(건너뜀)."""
     sem = asyncio.Semaphore(concurrency)
 
     async def one(t, p):
         async with sem:
-            await engine.synthesize(t, voice, p)
-        return duration_sec(p)
+            try:
+                await engine.synthesize(t, voice, p)
+                return duration_sec(p)
+            except Exception as ex:
+                print(f"  [tts] 건너뜀 {p.name}: {ex}")
+                return None
 
     return list(await asyncio.gather(*(one(t, p) for t, p in zip(texts, paths))))
