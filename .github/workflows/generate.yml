@@ -44,7 +44,7 @@ jobs:
       - name: Generate (RSS → Gemini → TTS → Releases → manifest)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}
           PYTHONUNBUFFERED: "1"
           CATEGORIES_INPUT: ${{ github.event.inputs.categories }}
         run: python -m pipeline.main --categories "$CATEGORIES_INPUT"
