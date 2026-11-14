@@ -91,6 +91,8 @@ def _chat(url: str, key: str, model: str, prompt: str, json_mode: bool) -> str:
             return r.json()["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError):
             raise _Retryable(f"{model} 빈 응답")
+    if r.status_code == 400 and json_mode:  # 모델이 JSON 모드를 지원하지 않으면 해제 후 재요청
+        return _chat(url, key, model, prompt, False)
     if r.status_code == 429 and "PerDay" in r.text:  # 일일 한도는 기다려도 소용없음
         raise ProviderError(f"{model} 일일 한도 소진")
     if r.status_code in RETRY_CODES:
