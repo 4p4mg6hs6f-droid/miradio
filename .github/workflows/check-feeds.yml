@@ -1,0 +1,13 @@
+name: check-feeds
+# RSS 주소가 살아 있는지 점검만 한다(오디오 생성·배포 없음). Actions 탭에서 수동 실행.
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r pipeline/requirements.txt
+      - run: python -m pipeline.main --check-feeds
