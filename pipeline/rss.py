@@ -14,6 +14,18 @@ def _clean(text: str, limit: int) -> str:
     return re.sub(r"\s+", " ", text).strip()[:limit]
 
 
+# 요약 앞뒤의 송고 표기("(서울=연합뉴스) 홍길동 기자 =", "[서울=뉴시스]")와 기자 이메일 제거
+_DATELINE = re.compile(r"^\s*[\(\[【<][^\)\]】>]{1,30}[\)\]】>]\s*")
+_REPORTER = re.compile(r"^\s*[가-힣]{2,4}\s*(?:선임|수석|특파원|인턴)?\s*(?:기자|특파원)\s*=\s*")
+_TAIL = re.compile(r"\s*(?:\(끝\)|(?:[가-힣]{2,4}\s*기자\s*)?\S+@\S+)\s*$")
+
+
+def strip_byline(text: str) -> str:
+    for _ in range(2):
+        text = _REPORTER.sub("", _DATELINE.sub("", text))
+    return _TAIL.sub("", text).strip(" =:·")
+
+
 def fetch_feed(source: str, url: str) -> list[dict]:
     r = requests.get(url, headers=UA, timeout=20)
     r.raise_for_status()
@@ -22,7 +34,7 @@ def fetch_feed(source: str, url: str) -> list[dict]:
         ts = e.get("published_parsed") or e.get("updated_parsed")
         out.append({
             "title": _clean(e.get("title", ""), 150),
-            "summary": _clean(e.get("summary", "") or e.get("description", ""), 400),
+            "summary": strip_byline(_clean(e.get("summary", "") or e.get("description", ""), 400)),
             "link": e.get("link", ""),
             "source": source,
             "ts": time.mktime(ts) if ts else 0,
