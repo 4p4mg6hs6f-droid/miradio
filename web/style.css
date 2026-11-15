@@ -9,9 +9,10 @@
           --accent:#3fc4bf; --on-accent:#06201f; --air:#ffb52e; }
 }
 * { box-sizing: border-box; }
-body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 var(--font);
-       padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
-main { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 var(--font); min-height: 100dvh;
+       padding-top: env(safe-area-inset-top); }
+main { max-width: 560px; margin: 0 auto; padding: 20px 16px calc(56px + env(safe-area-inset-bottom)); }
 h1 { font-size: 1.4rem; margin: 0; letter-spacing: -.02em; }
 h2 { font-size: 1.15rem; line-height: 1.4; margin: .2rem 0; word-break: keep-all; }
 .muted { color: var(--muted); font-size: .85rem; margin: .2rem 0; }
@@ -54,5 +55,22 @@ select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid 
 #list small { color: var(--muted); font-variant-numeric: tabular-nums; }
 #list li[aria-current="true"] button { border-left-color: var(--air); font-weight: 700; }
 #list li a { color: var(--muted); font-size: .8rem; }
-footer { margin-top: 28px; line-height: 1.5; }
+footer { margin-top: 28px; line-height: 1.6; overflow: visible; }
+footer p { margin: 0 0 .5rem; overflow-wrap: anywhere; word-break: keep-all; }
 @media (prefers-reduced-motion: no-preference) { button { transition: background .15s; } }
+
+/* SVG 아이콘: 폰트·이모지 대신 도형이라 모든 기기에서 동일하게 보인다 */
+.ic { width: 1.5rem; height: 1.5rem; fill: currentColor; display: block; margin: 0 auto; pointer-events: none; }
+.controls button:not(.round) { width: 56px; height: 56px; padding: 0; border-radius: 50%; }
+.round .ic { width: 2rem; height: 2rem; }
+#mixnote { margin: 6px 0 0; }
+legend .muted { font-size: .8rem; }
+#install { width: 100%; margin-top: 8px; }
+
+#resume { display: flex; align-items: center; gap: 12px; justify-content: space-between; margin-bottom: 14px;
+          padding: 12px 14px; background: var(--panel); border: 1px solid var(--line);
+          border-left: 4px solid var(--air); border-radius: 12px; }
+#resume[hidden] { display: none; }
+.r-text { display: flex; flex-direction: column; min-width: 0; }
+.r-text strong { overflow-wrap: anywhere; word-break: keep-all; line-height: 1.35; }
+#resume button { flex: none; }
