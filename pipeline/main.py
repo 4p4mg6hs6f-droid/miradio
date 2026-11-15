@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
-from .config import BUILD, CATEGORIES, MAX_ARTICLES, ROOT, TARGET_CHARS, VOICES
+from .config import AUDIO_STORE, BUILD, CATEGORIES, MAX_ARTICLES, ROOT, TARGET_CHARS, VOICES
 from .rss import collect, fetch_feed
 from .script_gen import build_script
 from .tts import EdgeTTSEngine, synth_all
@@ -74,6 +74,18 @@ def referenced_names(manifest: dict) -> set[str]:
             for v in c["voices"].values() for ch in v["chunks"]}
 
 
+def prune(site: Path, store, keep: set[str]) -> int:
+    """manifest가 참조하지 않는 mp3 삭제 (release 모드는 Releases 에셋, pages 모드는 site/audio)."""
+    if store:
+        return store.cleanup(keep)
+    n = 0
+    for f in (site / "audio").glob("*.mp3"):
+        if f.name not in keep:
+            f.unlink()
+            n += 1
+    return n
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--categories", default="", help="쉼표 구분. 비우면 전체")
@@ -105,12 +117,12 @@ def main():
     manifest = json.loads(mpath.read_text("utf-8")) if mpath.exists() else {"version": 1, "categories": {}}
 
     store = None
-    if not args.local:
+    if not args.local and AUDIO_STORE == "release":
         from .publish import ReleaseStore
         store = ReleaseStore()
 
     if args.cleanup:
-        print(f"삭제된 에셋: {store.cleanup(referenced_names(manifest))}개")
+        print(f"삭제된 파일: {prune(site, store, referenced_names(manifest))}개")
         return
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M")
@@ -130,6 +142,8 @@ def main():
         sys.exit("모든 분야 실패: manifest를 갱신하지 않습니다.")
     manifest["updated_at"] = datetime.now(timezone.utc).isoformat()
     mpath.write_text(json.dumps(manifest, ensure_ascii=False, indent=1), "utf-8")
+    if not store:   # pages 모드: push 전에 이전 회차 mp3를 정리해 용량 누적 방지
+        print(f"정리된 이전 mp3: {prune(site, None, referenced_names(manifest))}개")
     print(f"완료: 성공={ok} 실패={failed}")
 
     if args.local:                              # 로컬 미리보기용으로 프론트도 복사
