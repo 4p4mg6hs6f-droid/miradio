@@ -52,3 +52,5 @@ GEMINI_MAX_RETRIES = 3
 
 # ── GitHub Releases ──────────────────────────────────────────────────────
 RELEASE_TAG = os.getenv("RELEASE_TAG", "audio")
+# mp3 보관 위치: "pages"(기본, gh-pages/audio — Safari 포함 재생 호환) | "release"(GitHub Releases)
+AUDIO_STORE = os.getenv("AUDIO_STORE", "pages")
