@@ -48,7 +48,8 @@ MAX_AGE_HOURS = 36                                  # 오래된 기사 제외
 # ── Gemini ───────────────────────────────────────────────────────────────
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 GEMINI_INTERVAL_SEC = float(os.getenv("GEMINI_INTERVAL_SEC", 8))  # 무료 티어 분당 호출 제한 대비
-GEMINI_MAX_RETRIES = 3
+GEMINI_MAX_RETRIES = int(os.getenv("LLM_RETRIES", 1))  # 제공자당 시도 횟수: 1이면 실패 즉시 다음 제공자로
+DEADLINE_MIN = int(os.getenv("RUN_DEADLINE_MIN", 80))   # 이 시간이 지나면 남은 분야를 건너뛰고 완료분만 배포
 
 # ── GitHub Releases ──────────────────────────────────────────────────────
 RELEASE_TAG = os.getenv("RELEASE_TAG", "audio")
