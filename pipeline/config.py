@@ -9,29 +9,27 @@ BUILD = ROOT / "build"          # 로컬/CI 임시 산출물 (git 제외)
 # ⚠ 언론사가 RSS 주소를 바꾸거나 막을 수 있습니다.
 #   `python -m pipeline.main --check-feeds` 로 먼저 점검하고, 죽은 주소는 교체하세요.
 #   실패한 피드는 건너뛰고 나머지로 진행합니다.
+# ※ 언론사마다 RSS 이용 조건이 다릅니다. 경향신문은 RSS를 개인 구독용으로 한정하고 공중 배포를
+#   금지한다고 안내하고 있어 제외했습니다. 새 언론사를 추가하기 전에 약관을 확인하세요.
 CATEGORIES = {
     "politics": {"label": "정치", "feeds": [
         ("연합뉴스", "https://www.yna.co.kr/rss/politics.xml"),
         ("한겨레", "https://www.hani.co.kr/rss/politics/"),
-        ("경향신문", "https://www.khan.co.kr/rss/rssdata/politic_news.xml"),
         ("JTBC", "https://fs.jtbc.co.kr/RSS/politics.xml"),
     ]},
     "economy": {"label": "경제", "feeds": [
         ("연합뉴스", "https://www.yna.co.kr/rss/economy.xml"),
         ("한겨레", "https://www.hani.co.kr/rss/economy/"),
-        ("경향신문", "https://www.khan.co.kr/rss/rssdata/economy_news.xml"),
         ("JTBC", "https://fs.jtbc.co.kr/RSS/economy.xml"),
     ]},
     "society": {"label": "사회", "feeds": [
         ("연합뉴스", "https://www.yna.co.kr/rss/society.xml"),
         ("한겨레", "https://www.hani.co.kr/rss/society/"),
-        ("경향신문", "https://www.khan.co.kr/rss/rssdata/society_news.xml"),
         ("JTBC", "https://fs.jtbc.co.kr/RSS/society.xml"),
     ]},
     "it": {"label": "IT", "feeds": [
         ("ZDNet Korea", "https://feeds.feedburner.com/zdkorea"),
         ("전자신문", "https://rss.etnews.com/Section902.xml"),
-        ("경향신문", "https://www.khan.co.kr/rss/rssdata/it_news.xml"),
         ("한겨레", "https://www.hani.co.kr/rss/science/"),
     ]},
 }
