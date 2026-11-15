@@ -16,7 +16,7 @@ PROMPT = """너는 한국 뉴스 라디오의 앵커다. 아래 [기사 목록]�
 규칙:
 1. 제공된 제목·요약에 있는 사실만 사용한다. 원인·배경·전망·수치·인명을 새로 지어내지 마라. 정보가 빈약하면 짧게 쓰고, 억지로 늘리지 마라.
 2. 항목마다 300~450자(정보가 적으면 120자 이상 가능). 앵커 낭독체(~했습니다, ~입니다)로 쓴다.
-3. 첫 문장 안에서 출처 언론사를 밝힌다. 예: "연합뉴스 보도입니다."
+3. 언론사 이름, 기자 이름, "○○=연합뉴스" 같은 송고 표기는 읽지 않는다. 인사말·보도 멘트 없이 곧바로 기사 내용으로 시작한다.
 4. 숫자·영문·기호는 소리 나는 대로 한글로 푼다. 예: 3.5% → 삼 점 오 퍼센트, 2026년 → 이천이십육 년, AI → 에이아이, 5G → 오지.
 5. 이모지·마크다운·괄호·URL을 쓰지 않는다.
 6. 항목 간 연결 멘트("다음 소식입니다" 등)는 넣지 않는다.
@@ -74,10 +74,10 @@ def _gemini(prompt: str, attempt: int) -> str:
             return r.json()["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError):
             raise _Retryable(f"{model} 빈 응답")
-    if r.status_code == 429 and "PerDay" in r.text:  # 일일 한도는 기다려도 소용없음
+    if r.status_code == 429 and re.search(r"PerDay|per day|TPD|RPD", r.text, re.I):  # 일일 한도는 기다려도 소용없음
         raise ProviderError(f"{model} 일일 한도 소진", fatal=True)
     if r.status_code in RETRY_CODES:
-        raise _Retryable(f"{model} {r.status_code}", _hint(r))
+        raise _Retryable(f"{model} {r.status_code} {r.text[:100]!r}", _hint(r))
     raise ProviderError(f"{model} {r.status_code}: {r.text[:150]}", fatal=r.status_code in (401, 403, 404))
 
 
@@ -97,10 +97,10 @@ def _chat(url: str, key: str, model: str, prompt: str, json_mode: bool) -> str:
             raise _Retryable(f"{model} 빈 응답")
     if r.status_code == 400 and json_mode:  # 모델이 JSON 모드를 지원하지 않으면 해제 후 재요청
         return _chat(url, key, model, prompt, False)
-    if r.status_code == 429 and "PerDay" in r.text:  # 일일 한도는 기다려도 소용없음
+    if r.status_code == 429 and re.search(r"PerDay|per day|TPD|RPD", r.text, re.I):  # 일일 한도는 기다려도 소용없음
         raise ProviderError(f"{model} 일일 한도 소진", fatal=True)
     if r.status_code in RETRY_CODES:
-        raise _Retryable(f"{model} {r.status_code}", _hint(r))
+        raise _Retryable(f"{model} {r.status_code} {r.text[:100]!r}", _hint(r))
     raise ProviderError(f"{model} {r.status_code}: {r.text[:150]}", fatal=r.status_code in (401, 403, 404))
 
 
@@ -176,7 +176,7 @@ def _sanitize(text: str) -> str:
 def _plain(a: dict) -> str:
     """AI 없이 만든 대본: RSS 제목·요약 그대로(사실 추가 없음). 숫자 읽기는 TTS에 맡김."""
     body = a["summary"] if a["summary"][:20] != a["title"][:20] else ""
-    return _sanitize(f"{a['source']} 보도입니다. {a['title']}. {body}")
+    return _sanitize(f"{a['title']}. {body}")
 
 
 def build_script(label: str, articles: list[dict], target_chars: int) -> list[dict]:
@@ -186,7 +186,7 @@ def build_script(label: str, articles: list[dict], target_chars: int) -> list[di
         if total >= target_chars:
             break
         batch = articles[s:s + BATCH_SIZE]
-        listing = "\n".join(f"{i}. [{a['source']}] {a['title']} — {a['summary']}"
+        listing = "\n".join(f"{i}. {a['title']} — {a['summary']}"
                             for i, a in enumerate(batch))
         data, used = chain.run(PROMPT.format(label=label, articles=listing))
         if data is None:  # 모든 제공자 실패 → 템플릿 대본
