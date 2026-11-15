@@ -50,7 +50,11 @@ def _hint(r) -> int | None:
 
 
 class ProviderError(Exception):
-    """이 제공자로는 더 시도해도 소용없음: 다음 제공자로 전환."""
+    """이 제공자로는 더 시도해도 소용없음: 다음 제공자로 전환. fatal=True면 이번 실행에서 제외."""
+
+    def __init__(self, msg, fatal=False):
+        super().__init__(msg)
+        self.fatal = fatal
 
 
 # ── 제공자 구현 ──────────────────────────────────────────────────────────
@@ -62,7 +66,7 @@ def _gemini(prompt: str, attempt: int) -> str:
     try:
         r = requests.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-            json=body, timeout=(10, 120), headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"]})
+            json=body, timeout=(10, 120), headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"].strip()})
     except requests.RequestException as ex:
         raise _Retryable(f"{model} {type(ex).__name__}")
     if r.status_code == 200:
@@ -71,10 +75,10 @@ def _gemini(prompt: str, attempt: int) -> str:
         except (KeyError, IndexError):
             raise _Retryable(f"{model} 빈 응답")
     if r.status_code == 429 and "PerDay" in r.text:  # 일일 한도는 기다려도 소용없음
-        raise ProviderError(f"{model} 일일 한도 소진")
+        raise ProviderError(f"{model} 일일 한도 소진", fatal=True)
     if r.status_code in RETRY_CODES:
         raise _Retryable(f"{model} {r.status_code}", _hint(r))
-    raise ProviderError(f"{model} {r.status_code}: {r.text[:150]}")
+    raise ProviderError(f"{model} {r.status_code}: {r.text[:150]}", fatal=r.status_code in (401, 403, 404))
 
 
 def _chat(url: str, key: str, model: str, prompt: str, json_mode: bool) -> str:
@@ -94,20 +98,20 @@ def _chat(url: str, key: str, model: str, prompt: str, json_mode: bool) -> str:
     if r.status_code == 400 and json_mode:  # 모델이 JSON 모드를 지원하지 않으면 해제 후 재요청
         return _chat(url, key, model, prompt, False)
     if r.status_code == 429 and "PerDay" in r.text:  # 일일 한도는 기다려도 소용없음
-        raise ProviderError(f"{model} 일일 한도 소진")
+        raise ProviderError(f"{model} 일일 한도 소진", fatal=True)
     if r.status_code in RETRY_CODES:
         raise _Retryable(f"{model} {r.status_code}", _hint(r))
-    raise ProviderError(f"{model} {r.status_code}: {r.text[:150]}")
+    raise ProviderError(f"{model} {r.status_code}: {r.text[:150]}", fatal=r.status_code in (401, 403, 404))
 
 
 PROVIDERS = {
     "gemini": {"key": "GEMINI_API_KEY", "fn": _gemini},
     "groq": {"key": "GROQ_API_KEY", "model": "GROQ_MODEL", "fn": lambda p, a: _chat(
-        "https://api.groq.com/openai/v1/chat/completions", os.environ["GROQ_API_KEY"],
-        os.environ["GROQ_MODEL"], p, True)},
+        "https://api.groq.com/openai/v1/chat/completions", os.environ["GROQ_API_KEY"].strip(),
+        os.environ["GROQ_MODEL"].strip(), p, True)},
     "openrouter": {"key": "OPENROUTER_API_KEY", "model": "OPENROUTER_MODEL", "fn": lambda p, a: _chat(
-        "https://openrouter.ai/api/v1/chat/completions", os.environ["OPENROUTER_API_KEY"],
-        os.environ["OPENROUTER_MODEL"], p, False)},
+        "https://openrouter.ai/api/v1/chat/completions", os.environ["OPENROUTER_API_KEY"].strip(),
+        os.environ["OPENROUTER_MODEL"].strip(), p, False)},
 }
 
 
@@ -141,9 +145,9 @@ class Chain:
         self.providers = []
         for n in names:
             p = PROVIDERS.get(n)
-            if not p or not os.getenv(p["key"]):
+            if not p or not (os.getenv(p["key"]) or "").strip():
                 continue
-            if p.get("model") and not os.getenv(p["model"]):
+            if p.get("model") and not (os.getenv(p["model"]) or "").strip():
                 print(f"  [llm] {n}: {p['model']} 미설정이라 건너뜀 (--list-models 로 모델명 확인)")
                 continue
             self.providers.append((n, p))
@@ -158,8 +162,9 @@ class Chain:
             try:
                 return _parse(_retry(lambda a: p["fn"](prompt, a), name)), name
             except (ProviderError, ValueError) as ex:  # JSON 파싱 실패(ValueError)도 전환 사유
-                print(f"  [llm] {name} 실패 → 다음 제공자: {ex}")
-                self.cool[name] = self.n + 2
+                fatal = getattr(ex, "fatal", False)  # 인증 오류·일일 한도: 이번 실행에서 제외
+                print(f"  [llm] {name} 실패 → 다음 제공자{' (이번 실행에서 제외)' if fatal else ''}: {ex}")
+                self.cool[name] = 10 ** 9 if fatal else self.n + 2
         return None, "plain"
 
 
@@ -215,7 +220,7 @@ def list_models() -> None:
 
     if os.getenv("GEMINI_API_KEY"):
         d = get("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
-                headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"]})
+                headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"].strip()})
         print("[gemini] (GEMINI_MODEL, 쉼표로 여러 개 가능)")
         for m in d.get("models", []):
             if "generateContent" in m.get("supportedGenerationMethods", []):
