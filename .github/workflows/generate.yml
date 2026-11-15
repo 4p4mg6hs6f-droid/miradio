@@ -1,10 +1,10 @@
 name: generate-news-audio
 
 on:
-  schedule:                       # UTC 기준 → KST 06:00 / 12:00 / 18:00
-    - cron: "0 21 * * *"
-    - cron: "0 3 * * *"
-    - cron: "0 9 * * *"
+  schedule:                       # UTC 기준 → KST 05:30 / 11:30 / 17:30 (생성에 30~50분 걸려 06·12·18시에 맞춰 반영)
+    - cron: "30 20 * * *"
+    - cron: "30 2 * * *"
+    - cron: "30 8 * * *"
   workflow_dispatch:
     inputs:
       categories:
