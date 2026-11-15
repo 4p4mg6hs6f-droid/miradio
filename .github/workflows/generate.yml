@@ -52,6 +52,7 @@ jobs:
           OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || '' }}
           LLM_CHAIN: ${{ vars.LLM_CHAIN || 'gemini,groq,openrouter' }}
           GEMINI_INTERVAL_SEC: ${{ vars.GEMINI_INTERVAL_SEC || '8' }}
+          AUDIO_STORE: ${{ vars.AUDIO_STORE || 'pages' }}
           PYTHONUNBUFFERED: "1"
           CATEGORIES_INPUT: ${{ github.event.inputs.categories }}
         run: python -m pipeline.main --categories "$CATEGORIES_INPUT"
@@ -59,13 +60,19 @@ jobs:
       - name: Publish site to gh-pages
         run: |
           cp web/* site/ && touch site/.nojekyll
+          REMOTE="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           cd site
+          # mp3가 git 히스토리에 쌓이지 않도록 매번 새 히스토리로 덮어쓴다(force push)
+          rm -rf .git && git init -q -b gh-pages && git remote add origin "$REMOTE"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --cached --quiet || git commit -m "update $(date -u +%FT%TZ)"
-          git push origin HEAD:gh-pages
+          git commit -q -m "update $(date -u +%FT%TZ)"
+          git push -f origin gh-pages
 
-      # push 성공 후에만 manifest가 참조하지 않는 이전 mp3 삭제 (용량 누적 방지)
+      # release 모드에서만 의미 있음: push 성공 후 manifest가 참조하지 않는 이전 에셋 삭제
       - name: Cleanup old release assets
+        if: ${{ (vars.AUDIO_STORE || 'pages') == 'release' }}
+        env:
+          AUDIO_STORE: release
         run: python -m pipeline.main --cleanup
