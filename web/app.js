@@ -8,7 +8,7 @@ const CAT_ORDER = ["politics", "economy", "society", "it"];
 
 const audio = $("#audio");
 const warm = new Audio(); warm.preload = "auto";   // 다음 청크 미리 로딩용 (HTTP 캐시 예열)
-let manifest = null, list = [], idx = 0, errStreak = 0;
+let manifest = null, list = [], idx = 0, errStreak = 0, stallTimer = 0, stalled = false, pendingWarm = "";
 let pref = { mins: 30, cat: "politics", voice: "female", rate: 1 };
 try { Object.assign(pref, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(pref)); } catch {} };
@@ -76,7 +76,15 @@ function load(i, autoplay) {
   audio.src = c.audio;
   audio.defaultPlaybackRate = audio.playbackRate = pref.rate;
   if (autoplay) audio.play().catch(onPlayError);
-  if (list[i + 1]) warm.src = list[i + 1].audio;   // 다음 청크 미리 로딩
+  pendingWarm = list[i + 1] ? list[i + 1].audio : "";   // 다음 청크 미리 로딩은 canplay 이후
+  clearTimeout(stallTimer); stalled = false;
+  if (autoplay) stallTimer = setTimeout(() => {          // 10초 넘게 데이터가 안 오면 원인 단서 표시
+    if (audio.readyState < 3 && !audio.error) {
+      stalled = true;
+      status(`음원 응답이 늦습니다 (readyState ${audio.readyState}, network ${audio.networkState}). 아래 안내대로 확인해 주세요.`);
+      console.warn("[audio] stalled", audio.src);
+    }
+  }, 10000);
   $("#title").textContent = c.title;
   $("#source").textContent = c.source ? `출처: ${c.source}` : "";
   document.querySelectorAll("#list li").forEach((li, n) => {
@@ -109,11 +117,16 @@ function tick() {
 audio.addEventListener("timeupdate", tick);
 audio.addEventListener("play", tick); audio.addEventListener("pause", tick);
 audio.addEventListener("loadedmetadata", () => { audio.playbackRate = pref.rate; if (errStreak) status(""); errStreak = 0; tick(); });
+audio.addEventListener("canplay", () => { if (pendingWarm) { warm.src = pendingWarm; pendingWarm = ""; } });
+audio.addEventListener("playing", () => { clearTimeout(stallTimer); if (stalled) { stalled = false; status(""); } });
 audio.addEventListener("ended", () => next(true));
+const ERR = { 1: "중단됨", 2: "네트워크 오류", 3: "디코딩 오류", 4: "주소 또는 형식 미지원" };
 audio.addEventListener("error", () => {                 // 깨진 청크는 건너뛰되, 연속 3회 실패 시 중단
   if (!audio.src) return;
-  if (++errStreak >= 3) return status("오디오를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
-  status("오디오 하나를 불러오지 못해 다음 기사로 넘어갑니다."); next(true);
+  const c = audio.error && audio.error.code, detail = `코드 ${c}: ${ERR[c] || "알 수 없음"}`;
+  console.error("[audio]", detail, audio.error && audio.error.message, audio.src);
+  if (++errStreak >= 3) return status(`오디오를 불러오지 못했습니다 (${detail}).`);
+  status(`오디오 하나를 불러오지 못해 다음 기사로 넘어갑니다 (${detail}).`); next(true);
 });
 $("#seek").oninput = (e) => { if (audio.duration) audio.currentTime = (e.target.value / 1000) * audio.duration; };
 $("#play").onclick = () => (audio.paused ? audio.play().catch(onPlayError) : audio.pause());
