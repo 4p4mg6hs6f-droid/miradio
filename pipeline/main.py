@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
-from .config import AUDIO_STORE, BUILD, CATEGORIES, MAX_ARTICLES, ROOT, TARGET_CHARS, VOICES
+from .config import AUDIO_STORE, BUILD, DEADLINE_MIN, CATEGORIES, MAX_ARTICLES, ROOT, TARGET_CHARS, VOICES
 from .rss import collect, fetch_feed
 from .script_gen import build_script
 from .tts import EdgeTTSEngine, synth_all
@@ -128,7 +128,12 @@ def main():
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M")
     cats = [c for c in (args.categories.split(",") if args.categories else CATEGORIES) if c in CATEGORIES]
     engine, ok, failed = EdgeTTSEngine(), [], []
-    for cat in cats:
+    t0 = time.time()
+    for n, cat in enumerate(cats):
+        if time.time() - t0 > DEADLINE_MIN * 60:   # 워크플로 시간 제한 전에 완료분만이라도 배포
+            print(f"::warning::{DEADLINE_MIN}분 경과 — 남은 분야 건너뜀: {cats[n:]}")
+            failed += cats[n:]
+            break
         print(f"== {cat} ==")
         try:
             manifest["categories"][cat] = process_category(cat, args, store, stamp, engine, site)
