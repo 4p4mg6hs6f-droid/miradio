@@ -137,8 +137,13 @@ def _parse(text: str) -> list:
     return data
 
 
+# 실패한 제공자를 건너뛰는 묶음 수. 기본값은 사실상 "이번 실행 동안 계속 제외"(한 번 실패하면 그만).
+# 일시 오류(503 등)에서 회복을 기대하려면 Variable LLM_COOLDOWN=2 처럼 줄이세요.
+COOLDOWN = int(os.getenv("LLM_COOLDOWN", 10 ** 6))
+
+
 class Chain:
-    """제공자 순차 시도 + 실패한 제공자는 잠시(2묶음) 건너뛰기."""
+    """제공자 순차 시도. 실패한 제공자는 COOLDOWN 묶음 동안(기본: 실행 끝까지, 모든 분야 공통) 제외."""
 
     def __init__(self):
         names = [n.strip() for n in os.getenv("LLM_CHAIN", "gemini,groq,openrouter").split(",")]
@@ -156,6 +161,8 @@ class Chain:
 
     def run(self, prompt: str):
         self.n += 1
+        if all(self.cool.get(n, 0) > self.n for n, _ in self.providers):
+            return None, "plain"                    # 남은 제공자가 없으면 호출 없이 바로 템플릿
         for name, p in self.providers:
             if self.cool.get(name, 0) > self.n:
                 continue
@@ -164,7 +171,7 @@ class Chain:
             except (ProviderError, ValueError) as ex:  # JSON 파싱 실패(ValueError)도 전환 사유
                 fatal = getattr(ex, "fatal", False)  # 인증 오류·일일 한도: 이번 실행에서 제외
                 print(f"  [llm] {name} 실패 → 다음 제공자{' (이번 실행에서 제외)' if fatal else ''}: {ex}")
-                self.cool[name] = 10 ** 9 if fatal else self.n + 2
+                self.cool[name] = 10 ** 9 if fatal else self.n + COOLDOWN
         return None, "plain"
 
 
@@ -179,9 +186,20 @@ def _plain(a: dict) -> str:
     return _sanitize(f"{a['title']}. {body}")
 
 
+_CHAIN = None
+
+
+def _get_chain() -> "Chain":
+    """프로세스 전체에서 하나만 사용 → 분야가 바뀌어도 실패한 제공자를 다시 시도하지 않는다."""
+    global _CHAIN
+    if _CHAIN is None:
+        _CHAIN = Chain()
+    return _CHAIN
+
+
 def build_script(label: str, articles: list[dict], target_chars: int) -> list[dict]:
     """목표 글자 수에 도달하면 중단. 반환: [{title, source, link, text}]"""
-    chain, items, total, n_plain = Chain(), [], 0, 0
+    chain, items, total, n_plain = _get_chain(), [], 0, 0
     for s in range(0, len(articles), BATCH_SIZE):
         if total >= target_chars:
             break
