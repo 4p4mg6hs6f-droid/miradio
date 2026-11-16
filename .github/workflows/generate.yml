@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       categories:
-        description: "쉼표 구분 (politics,economy,society,it). 비우면 전체"
+        description: "쉼표 구분 (politics,economy,society,it,world). 비우면 전체"
         required: false
         default: ""
 
