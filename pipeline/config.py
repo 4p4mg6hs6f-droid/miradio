@@ -32,6 +32,11 @@ CATEGORIES = {
         ("전자신문", "https://rss.etnews.com/Section902.xml"),
         ("한겨레", "https://www.hani.co.kr/rss/science/"),
     ]},
+    "world": {"label": "국제", "feeds": [
+        # ⚠ 주소는 기존 피드의 규칙으로 추정한 것입니다. check-feeds 로 먼저 확인하세요.
+        ("연합뉴스", "https://www.yna.co.kr/rss/international.xml"),
+        ("한겨레", "https://www.hani.co.kr/rss/international/"),
+    ]},
 }
 
 VOICES = {"male": "ko-KR-InJoonNeural", "female": "ko-KR-SunHiNeural"}
