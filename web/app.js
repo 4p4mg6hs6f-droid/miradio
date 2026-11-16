@@ -4,7 +4,7 @@ const $ = (s) => document.querySelector(s);
 const KEY = "miradio.v1", POS = "miradio.pos.v1";
 const MINS = [[10, "10분"], [30, "30분"], [60, "1시간"]];
 const VOICES = [["female", "여성"], ["male", "남성"]];
-const CAT_ORDER = ["politics", "economy", "society", "it"];
+const CAT_ORDER = ["politics", "economy", "society", "world", "it"];
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
