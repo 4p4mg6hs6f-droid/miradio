@@ -29,7 +29,8 @@ Render·Redis·별도 백엔드 서버는 없습니다.
 │  ├─ publish.py      # Releases 업로드/미참조 에셋 삭제
 │  ├─ main.py         # 오케스트레이션 + manifest 생성 + CLI
 │  └─ requirements.txt
-├─ web/ (index.html, app.js, style.css)   # → gh-pages 로 배포
+├─ workflow/check-feeds.yml          # RSS 점검용(수동 실행). .github/workflows/ 로 옮겨서 사용
+├─ web/ (index.html, app.js, style.css, sw.js, manifest.webmanifest, 아이콘)   # → gh-pages 로 배포
 ├─ env.example, gitignore.txt       # 숨김파일(.env.example, .gitignore)의 보이는 사본
 └─ README.md
 ```
@@ -84,3 +85,18 @@ cd build/site && python -m http.server 8000   # http://localhost:8000
 - `pages`(기본): mp3를 `gh-pages/audio/`에 두고 상대 경로로 재생합니다. GitHub Pages는 `audio/mpeg`·Range를 올바르게 제공해 Safari(아이폰 포함)에서도 재생됩니다. 매 실행마다 gh-pages를 새 히스토리로 force-push해 mp3가 히스토리에 쌓이지 않습니다. 사이트 용량은 약 170MB(분야 4 × 성별 2 × 1시간)입니다.
 - `release`: GitHub Releases에 보관합니다. Releases 주소는 다운로드용(attachment) 응답이라 **Safari에서 `<audio>` 재생이 안 될 수 있습니다**(Chrome은 대체로 가능). Variable `AUDIO_STORE=release`로 전환할 수 있습니다.
 - 기존 `audio` 릴리스는 더 이상 쓰지 않으면 Releases 탭에서 수동 삭제해도 됩니다.
+
+## 웹앱(PWA) 설치
+- 안드로이드/데스크탑 Chrome: 화면의 **앱으로 설치** 버튼 또는 브라우저 메뉴의 ‘앱 설치’
+- 아이폰 Safari: 공유 버튼 → **홈 화면에 추가**
+- 서비스 워커는 앱 화면(HTML/JS/CSS)만 캐시하고, 오디오는 캐시하지 않습니다(Safari 재생 호환).
+
+## 여러 분야 섞어 재생 / 이어듣기
+- 분야는 여러 개 선택할 수 있고, 2개 이상이면 인트로 없이 분야를 번갈아 섞어 재생합니다(시간 자르기는 섞인 순서 기준).
+- 마지막 듣던 기사와 위치는 브라우저에 저장되며 접속 시 ‘이어듣기’로 표시됩니다. 새 뉴스로 갱신되어 mp3가 교체되면 이전 위치는 사라집니다.
+
+## 기존 Releases 정리
+저장소 오른쪽 **Releases** → `audio` → 휴지통(Delete) → 확인. 그다음 **Tags**에서 `audio` 태그도 삭제합니다(터미널: `git push origin --delete audio`).
+
+## RSS 이용 조건 주의
+언론사마다 RSS 이용 조건이 다릅니다. 예를 들어 경향신문은 RSS를 개인 구독 용도로 한정하고 저작권자 허락 없는 공중 배포·재서비스를 금지한다고 안내합니다. 이 프로젝트는 사이트가 인터넷에 공개되므로, 새 언론사를 추가하기 전에 약관을 확인하고 공개 범위를 신중히 정하세요.
