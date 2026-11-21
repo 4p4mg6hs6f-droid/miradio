@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#e8ecef" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b1119" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="miradio">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <title>miradio</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- 재생 아이콘은 이모지 대신 SVG: 기기마다 모양이 달라지지 않는다 -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M6 5h2.2v14H6zM19 5.7v12.6a.8.8 0 0 1-1.25.66L9.5 12.66a.8.8 0 0 1 0-1.32l8.25-5.3A.8.8 0 0 1 19 5.7z"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M15.8 5H18v14h-2.2zM5 5.7v12.6a.8.8 0 0 0 1.25.66l8.25-6.3a.8.8 0 0 0 0-1.32L6.25 5.04A.8.8 0 0 0 5 5.7z"/></symbol>
+</svg>
+
+<main>
+  <header>
+    <h1 aria-label="miradio">
+      <svg class="logo" viewBox="0 0 141 40" role="img" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 34V14M4 21Q4 14 10 14Q15 14 15 21V34M15 21Q15 14 21 14Q26 14 26 21V34"/>
+          <path d="M33 14V34"/>
+          <path d="M41 34V14M41 23Q41 14 48 14"/>
+          <circle cx="65" cy="24" r="9.5"/><path d="M74.5 14V34"/>
+          <circle cx="92" cy="24" r="9.5"/><path d="M101.5 4V34"/>
+          <path d="M110 14V34"/>
+          <circle cx="127" cy="24" r="9.5"/>
+        </g>
+        <g fill="currentColor"><circle cx="33" cy="5.5" r="2.6"/><circle cx="110" cy="5.5" r="2.6"/></g>
+        <circle cx="127" cy="24" r="3.2" fill="var(--air)"/>
+      </svg>
+    </h1>
+    <p id="updated" class="muted">불러오는 중…</p>
+  </header>
+
+  <div id="status" role="status" hidden></div>
+
+  <section id="resume" hidden aria-label="이어듣기">
+    <div class="r-text">
+      <small class="muted">마지막으로 듣던 뉴스</small>
+      <strong id="r-title"></strong>
+      <span id="r-meta" class="muted"></span>
+    </div>
+    <button id="r-go" class="primary">이어듣기</button>
+  </section>
+
+  <section id="settings" aria-label="재생 설정">
+    <fieldset><legend>시간</legend><div class="chips" id="g-mins"></div></fieldset>
+    <fieldset>
+      <legend>분야 <span class="muted">(여러 개 선택 가능)</span></legend>
+      <div class="chips" id="g-cat"></div>
+      <p id="mixnote" class="muted" hidden>여러 분야를 고르면 인트로 없이 분야를 번갈아 섞어 재생합니다.</p>
+    </fieldset>
+    <fieldset><legend>목소리</legend><div class="chips" id="g-voice"></div></fieldset>
+    <button id="start" class="primary" disabled>재생 시작</button>
+    <button id="install" hidden>앱으로 설치</button>
+  </section>
+
+  <section id="player" hidden aria-label="플레이어">
+    <p class="remain"><span id="remain">0:00</span><small> 남음</small></p>
+    <h2 id="title">-</h2>
+    <p id="source" class="muted"></p>
+    <input id="seek" type="range" min="0" max="1000" value="0" aria-label="재생 위치">
+    <div class="times muted"><span id="cur">0:00</span><span id="dur">0:00</span></div>
+    <div class="controls">
+      <button id="prev" aria-label="이전 기사"><svg class="ic"><use href="#i-prev"/></svg></button>
+      <button id="play" class="primary round" aria-label="재생"><svg class="ic"><use href="#i-play"/></svg></button>
+      <button id="next" aria-label="다음 기사"><svg class="ic"><use href="#i-next"/></svg></button>
+    </div>
+    <label class="rate">속도
+      <select id="rate">
+        <option value="0.8">0.8×</option><option value="1">1×</option>
+        <option value="1.2">1.2×</option><option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </label>
+    <ol id="list"></ol>
+  </section>
+
+  <footer class="muted">
+    <p>뉴스 내용은 각 언론사 RSS의 제목·요약을 바탕으로 AI가 낭독용으로 다시 쓴 것이며, 사실과 다를 수 있습니다. 정확한 내용은 기사 목록의 출처 링크에서 확인하세요.</p>
+    <p>음성은 합성음입니다.</p>
+    <p>이 앱은 개인·비상업 용도로 만든 서비스이며, 기사 제목·요약의 저작권은 각 언론사에 있습니다.</p>
+    <p id="ioshint" hidden>아이폰에서는 공유 버튼 → ‘홈 화면에 추가’로 앱처럼 설치할 수 있습니다.</p>
+  </footer>
+</main>
+<audio id="audio" preload="auto"></audio>
+<script src="app.js"></script>
+</body>
+</html>
